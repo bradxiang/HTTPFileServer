@@ -1,29 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Simple HTTP Server With Upload based on python3.
-Python2-Version by [bones7456] and [BUPTGuo]:
-    This module builds on BaseHTTPServer by implementing the standard GET and HEAD requests in a fairly straightforward manner.
-
-Python3-Version by [FrozenMap]:
-    Based on the new features in python3, this module is built on [http.server] by rewriting some implementations of do_GET, do_HEAD and do_POST and other functions in Python2-Version.
-
-More details can be found on GitHub Pages: https://jjayyyyyyy.github.io/2016/10/07/python3%E9%87%8D%E5%86%99SimpleHTTPServerWithUpload.html
-
-"""
-
-__version__ = "0.3"
-__all__ = ["SimpleHTTPRequestHandler"]
-__author__ = "bones7456, BUPTGuo, FrozenMap"
-
 
 import os
 import posixpath
 import http.server
 import urllib
 import cgi
-import shutil
 import mimetypes
 import re
+import json
+"""Simple HTTP Server With Upload based on python3.
+Python2-Version by [bones7456] and [BUPTGuo]:
+    This module builds on BaseHTTPServer by implementing the standard GET and HEAD requests in a fairly straightforward
+    manner.
+
+Python3-Version by [FrozenMap]:
+    Based on the new features in python3, this module is built on [http.server] by rewriting some implementations of
+    do_GET,do_HEAD and do_POST and other functions in Python2-Version.
+
+More details can be found on GitHub Pages:
+https://jjayyyyyyy.github.io/2016/10/07/python3%E9%87%8D%E5%86%99SimpleHTTPServerWithUpload.html
+
+"""
+
+__version__ = "0.3"
+__all__ = ["SimpleHTTPRequestHandler"]
+__author__ = "bones7456, BUPTGuo, FrozenMap"
 
 
 class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
@@ -47,30 +49,18 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         """Serve a HEAD request."""
-        f = self.send_head()
+        self.send_head()
 
     def do_POST(self):
         """Serve a POST request."""
-        r, info = self.deal_post_data()
-        print(r, info, "by: ", self.client_address)
-        f = ('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">') +\
-            ('<html><head>') +\
-            ('<meta http-equiv="Content-Type" content="text/html; charset=utf-8">') +\
-            ('<title>Upload Result Page</title>') +\
-            ('</head><body>') +\
-            ('<h1>Upload Result Page</h1>') +\
-            ('<hr>')
-        if r:
-            f = f + ('<strong>Success:<strong>') + info
-        else:
-            f = f + ('<strong>Failed:<strong>') + info
-        f = f + '<br><a href="%s">back</a>' % self.headers['referer'] +\
-            '</body></html>'
-
+        _, path = self.deal_post_data()
+        f = {"path": path}
+        f = json.dumps(f)
         f = f.encode('utf-8')
         length = len(f)
         self.send_response(200)
-        self.send_header("Content-type", "text/html")
+        self.send_header('Access-Control-Allow-Origin','*')
+        self.send_header("Content-type", "application/json")
         self.send_header("Content-Length", str(length))
         self.end_headers()
         self.wfile.write(f)
@@ -81,7 +71,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         line = self.rfile.readline()
         remainbytes = remainbytes - len(line)
-        if not boundary in line:
+        if boundary not in line:
             return (False, "Content NOT begin with boundary")
 
         line = self.rfile.readline().decode('utf-8')
@@ -91,7 +81,10 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         # the () is the key to re.findall
         if not fn[0]:
             return (False, "Can't find out file name...")
+        # path = self.translate_path(self.path) #文件自身路径
         path = self.translate_path(self.path)
+        print(path)
+        path = path +'/data/'
         fn = os.path.join(path, fn[0])
         while os.path.exists(fn):
             fn += "_copy"
@@ -118,7 +111,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                     preline = preline[0:-1]
                 localfile.write(preline)
                 localfile.close()
-                return (True, "File '%s' upload success!" % fn)
+                return (True, fn)
             else:
                 localfile.write(preline)
                 preline = line
@@ -133,6 +126,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         None, in which case the caller has nothing further to do.
         """
         path = self.translate_path(self.path)
+        path = path +'/data/'
         f = None
         if os.path.isdir(path):
             if not self.path.endswith('/'):
@@ -221,16 +215,17 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         probably be diagnosed.)
         """
         # abandon query parameters
-        path = path.split('?',1)[0]
-        path = path.split('#',1)[0]
+        path = path.split('?', 1)[0]
+        path = path.split('#', 1)[0]
         path = posixpath.normpath(urllib.parse.unquote(path))
         words = path.split('/')
         words = filter(None, words)
         path = os.getcwd()
         for word in words:
-            drive, word = os.path.splitdrive(word)
-            head, word = os.path.split(word)
-            if word in (os.curdir, os.pardir): continue
+            _, word = os.path.splitdrive(word)
+            _, word = os.path.split(word)
+            if word in (os.curdir, os.pardir):
+                continue
             path = os.path.join(path, word)
         return path
 
@@ -245,7 +240,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         slow) to look inside the data to make a better guess.
         """
 
-        base, ext = posixpath.splitext(path)
+        _, ext = posixpath.splitext(path)
         if ext in self.extensions_map:
             return self.extensions_map[ext]
         ext = ext.lower()
@@ -255,19 +250,19 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             return self.extensions_map['']
 
     if not mimetypes.inited:
-        mimetypes.init() # try to read system mime.types
+        mimetypes.init()  # try to read system mime.types
     extensions_map = mimetypes.types_map.copy()
     extensions_map.update({
-        '': 'application/octet-stream', # Default
+        '': 'application/octet-stream',  # Default
         '.py': 'text/plain',
         '.c': 'text/plain',
         '.h': 'text/plain',
         })
 
 
-def run(HandlerClass = SimpleHTTPRequestHandler,
-         ServerClass = http.server.HTTPServer):
-    http.server.test(HandlerClass, ServerClass)
+def run(HandlerClass=SimpleHTTPRequestHandler, ServerClass=http.server.HTTPServer):
+    http.server.test(HandlerClass, ServerClass, port=9999)
+
 
 if __name__ == '__main__':
     run()
