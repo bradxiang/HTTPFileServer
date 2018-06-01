@@ -185,7 +185,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             ('<form ENCTYPE="multipart/form-data" method="post">') +\
             ('<input name="file" type="file"/>') +\
             ('<input type="submit" value="upload"/></form>') +\
-            ('<hr><ul>')
+            ('<hr><ol>')
 
         for name in list:
             fullname = os.path.join(path, name)
@@ -198,7 +198,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 displayname = name + "@"
                 # Note: a link to a directory displays with @ and links with /
             f = f + ('<li><a href="%s">%s</a>' % (urllib.parse.quote(linkname), cgi.escape(displayname)))
-        f = f + ("</ul><hr></body></html>")
+        f = f + ("</ol><hr></body></html>")
 
         f = f.encode('utf-8')
         length = len(f)
@@ -260,8 +260,10 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         })
 
 
-def run(HandlerClass=SimpleHTTPRequestHandler, ServerClass=http.server.HTTPServer):
-    http.server.test(HandlerClass, ServerClass, port=9999)
+def run(HandlerClass=SimpleHTTPRequestHandler,
+        ServerClass=http.server.HTTPServer,
+        port=9999):
+    http.server.test(HandlerClass, ServerClass, port=port)
 
 
 if __name__ == '__main__':
