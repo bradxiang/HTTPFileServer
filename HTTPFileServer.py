@@ -83,8 +83,6 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             return (False, "Can't find out file name...")
         # path = self.translate_path(self.path) #文件自身路径
         path = self.translate_path(self.path)
-        print(path)
-        path = path +'/data/'
         fn = os.path.join(path, fn[0])
         while os.path.exists(fn):
             fn += "_copy"
@@ -126,7 +124,6 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         None, in which case the caller has nothing further to do.
         """
         path = self.translate_path(self.path)
-        path = path +'/data/'
         f = None
         if os.path.isdir(path):
             if not self.path.endswith('/'):
